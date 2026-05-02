@@ -9,6 +9,7 @@ import httpx
 
 from to_vibe.config import LLMConfig
 from to_vibe.llm.protocol import get_protocol
+from to_vibe.llm.request import LLMRequest
 
 
 class LLMError(Exception):
@@ -27,7 +28,7 @@ class GenericLLMClient:
     Protocol-specific behavior lives in LLMProtocol:
       - auth header name/value format
       - chat endpoint path
-      - request body shape
+      - request body shape (via LLMRequest)
       - response parsing
     """
 
@@ -59,6 +60,25 @@ class GenericLLMClient:
         )
         return headers
 
+    def _build_request(self, messages: list[dict[str, str]], **kwargs: Any) -> LLMRequest:
+        """Build an LLMRequest from config + caller kwargs."""
+        return LLMRequest(
+            model=self.config.model,
+            messages=messages,
+            stream=kwargs.get("stream", self.config.stream),
+            max_tokens=kwargs.get("max_tokens", self.config.max_tokens),
+            temperature=kwargs.get("temperature", self.config.temperature),
+            top_p=kwargs.get("top_p"),
+            stop=kwargs.get("stop"),
+            presence_penalty=kwargs.get("presence_penalty"),
+            frequency_penalty=kwargs.get("frequency_penalty"),
+            thinking=kwargs.get("thinking"),
+            tools=kwargs.get("tools"),
+            tool_choice=kwargs.get("tool_choice"),
+            response_format=kwargs.get("response_format"),
+            extra_body=kwargs.get("extra_body", {}),
+        )
+
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
@@ -68,19 +88,15 @@ class GenericLLMClient:
         messages: list[dict[str, str]],
         *,
         max_tokens: int | None = None,
+        **kwargs: Any,
     ) -> str:
         """Non-streaming completion — returns full response text."""
-        api_key = self.config.api_key
-        if not api_key:
+        if not self.config.api_key:
             raise LLMError("API key not set (check api_key in to-vibe.yaml)")
 
-        body = self._protocol.build_body(
-            model=self.config.model,
-            messages=messages,
-            stream=False,
-            max_tokens=max_tokens or self.config.max_tokens,
-            temperature=self.config.temperature if self.config.temperature else None,
-        )
+        req_kwargs = dict(stream=False, max_tokens=max_tokens, **kwargs)
+        req = self._build_request(messages, **req_kwargs)
+        body = self._protocol.build_request(req)
         headers = self._headers()
 
         timeout = httpx.Timeout(self.config.timeout)
@@ -90,27 +106,22 @@ class GenericLLMClient:
         if response.status_code != 200:
             raise LLMError(f"LLM API error {response.status_code}: {response.text}")
 
-        result = response.json()
-        return self._protocol.extract_content(result)
+        return self._protocol.extract_content(response.json())
 
     async def stream_complete(
         self,
         messages: list[dict[str, str]],
         *,
         max_tokens: int | None = None,
+        **kwargs: Any,
     ) -> AsyncIterator[str]:
         """Streaming completion — yields text chunks as they arrive."""
-        api_key = self.config.api_key
-        if not api_key:
+        if not self.config.api_key:
             raise LLMError("API key not set (check api_key in to-vibe.yaml)")
 
-        body = self._protocol.build_body(
-            model=self.config.model,
-            messages=messages,
-            stream=True,
-            max_tokens=max_tokens or self.config.max_tokens,
-            temperature=self.config.temperature if self.config.temperature else None,
-        )
+        req_kwargs = dict(stream=True, max_tokens=max_tokens, **kwargs)
+        req = self._build_request(messages, **req_kwargs)
+        body = self._protocol.build_request(req)
         headers = self._headers()
 
         timeout = httpx.Timeout(self.config.timeout)
@@ -135,18 +146,10 @@ class GenericLLMClient:
 # ------------------------------------------------------------------
 
 def create_client(config: LLMConfig) -> GenericLLMClient:
-    """Create an LLM client — always returns GenericLLMClient.
-
-    Args:
-        config: LLM configuration with endpoint, credentials, and protocol
-
-    Returns:
-        GenericLLMClient instance
-    """
+    """Create an LLM client — always returns GenericLLMClient."""
     return GenericLLMClient(config)
 
 
-# Global client instance
 _client: GenericLLMClient | None = None
 
 
@@ -156,14 +159,7 @@ def get_client() -> GenericLLMClient | None:
 
 
 def init_client(config: LLMConfig) -> GenericLLMClient:
-    """Initialize the global LLM client.
-
-    Args:
-        config: LLM configuration
-
-    Returns:
-        Initialized GenericLLMClient
-    """
+    """Initialize the global LLM client."""
     global _client
     _client = create_client(config)
     return _client

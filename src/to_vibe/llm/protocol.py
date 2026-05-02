@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from to_vibe.llm.request import LLMRequest
+
 
 class LLMProtocol:
     """Single place for protocol behavior — auth format, endpoint path, body shape.
@@ -27,15 +29,8 @@ class LLMProtocol:
         """Return the formatted auth header value given the raw api_key."""
         raise NotImplementedError
 
-    def build_body(
-        self,
-        model: str,
-        messages: list[dict[str, str]],
-        stream: bool,
-        max_tokens: int,
-        temperature: float | None = None,
-    ) -> dict:
-        """Build the request body for this protocol."""
+    def build_request(self, req: LLMRequest) -> dict:
+        """Build the request body for this protocol from an LLMRequest."""
         raise NotImplementedError
 
     def extract_content(self, result: dict) -> str:
@@ -68,20 +63,19 @@ class AnthropicProtocol(LLMProtocol):
     def auth_header_value(self, api_key: str) -> str:
         return api_key  # raw, no Bearer
 
-    def build_body(
-        self,
-        model: str,
-        messages: list[dict[str, str]],
-        stream: bool,
-        max_tokens: int,
-        temperature: float | None = None,
-    ) -> dict:
+    def build_request(self, req: LLMRequest) -> dict:
         body: dict = {
-            "model": model,
-            "messages": messages,
-            "max_tokens": max_tokens,
-            "stream": stream,
+            "model": req.model,
+            "messages": req.messages,
+            "max_tokens": req.max_tokens,
+            "stream": req.stream,
         }
+        if req.thinking is not None:
+            body["thinking"] = req.thinking
+        if req.stop:
+            body["stop_sequences"] = req.stop
+        # Merge extra_body for provider-specific fields (e.g. vertex-ai extensions)
+        body.update(req.extra_body)
         return body
 
     def extract_content(self, result: dict) -> str:
@@ -113,22 +107,31 @@ class OpenAICompatibleProtocol(LLMProtocol):
     def auth_header_value(self, api_key: str) -> str:
         return f"Bearer {api_key}"
 
-    def build_body(
-        self,
-        model: str,
-        messages: list[dict[str, str]],
-        stream: bool,
-        max_tokens: int,
-        temperature: float | None = None,
-    ) -> dict:
+    def build_request(self, req: LLMRequest) -> dict:
         body: dict = {
-            "model": model,
-            "messages": messages,
-            "max_tokens": max_tokens,
-            "stream": stream,
+            "model": req.model,
+            "messages": req.messages,
+            "max_tokens": req.max_tokens,
+            "stream": req.stream,
         }
-        if temperature is not None:
-            body["temperature"] = temperature
+        if req.temperature is not None:
+            body["temperature"] = req.temperature
+        if req.top_p is not None:
+            body["top_p"] = req.top_p
+        if req.stop:
+            body["stop"] = req.stop
+        if req.presence_penalty is not None:
+            body["presence_penalty"] = req.presence_penalty
+        if req.frequency_penalty is not None:
+            body["frequency_penalty"] = req.frequency_penalty
+        if req.tools:
+            body["tools"] = req.tools
+        if req.tool_choice:
+            body["tool_choice"] = req.tool_choice
+        if req.response_format:
+            body["response_format"] = req.response_format
+        # Merge extra_body last so it can override standard fields
+        body.update(req.extra_body)
         return body
 
     def extract_content(self, result: dict) -> str:
