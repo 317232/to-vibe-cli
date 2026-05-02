@@ -2,56 +2,70 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any
-
-from textual.widgets import Static
+from textual.app import ComposeResult
+from textual.containers import Container, Vertical
+from textual.message import Message
+from textual.widgets import Static, Button
 from to_vibe.tui.styles import Colors
+from to_vibe.tui.state_store import TUIStateStore
+from to_vibe.tui.state_models import LearnData, LearnDetailView
 
 
-@dataclass
-class LearnData:
-    """Learn module data."""
-
-    status: str = "pending"
-    records: int = 0
-    focus: str = "Patterns & fixes"
-    source: str = "Verified issues"
-    detail_view: Any = None
-    is_detail: bool = False
-
-
-class LearnPanel(Static):
-    """Learn panel showing current learning state with [详情] expansion."""
+class LearnPanel(Container):
+    """Learn panel with summary view + [详情] button to expand detail."""
 
     BINDINGS = [
-        ("a", "accept", "Accept"),
-        ("e", "edit", "Edit"),
-        ("r", "reject", "Reject"),
-        ("p", "pin", "Pin"),
-        ("d", "delete", "Delete"),
         ("escape", "return", "Return"),
     ]
 
-    def __init__(self, *args: object, **kwargs: object) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(self, store: TUIStateStore, **kwargs: object) -> None:
+        super().__init__(**kwargs)
+        self._store = store
+        self._unsubscribe: callable | None = None
         self._data: LearnData | None = None
-        self._detail_view: Any = None
+        self._detail_view: LearnDetailView | None = None
+        self._text_widget: Static | None = None
+        self._detail_button: Button | None = None
+
+    def compose(self) -> ComposeResult:
+        self._text_widget = Static(id="learn-text")
+        self._detail_button = Button("[详情]", id="learn-detail-btn", variant="primary")
+        yield Vertical(self._text_widget, self._detail_button)
+
+    def on_mount(self) -> None:
+        self._unsubscribe = self._store.subscribe("learn", self._on_learn)
+        self.set_data(self._store.get_learn())
+
+    def on_unmount(self) -> None:
+        if self._unsubscribe:
+            self._unsubscribe()
+
+    def _on_learn(self, data: LearnData) -> None:
+        self.app.call_from_thread(self.set_data, data)
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle [详情] button press."""
+        if event.button.id == "learn-detail-btn":
+            self._show_detail()
 
     def set_data(self, data: LearnData) -> None:
-        """Set learn data."""
         self._data = data
+        self._detail_view = data.detail_view
         self._update_display()
 
-    def set_detail_view(self, view: Any) -> None:
-        """Set the detail view data."""
-        self._detail_view = view
-
-    def show_detail(self) -> None:
-        """Switch to detail view."""
+    def _show_detail(self) -> None:
         if self._data:
             self._data.is_detail = True
+        if self._detail_button:
+            self._detail_button.display = False
         self._update_display()
+
+    def action_return(self) -> None:
+        if self._data:
+            self._data.is_detail = False
+            if self._detail_button:
+                self._detail_button.display = True
+            self._update_display()
 
     def _update_display(self) -> None:
         if self._data and self._data.is_detail:
@@ -60,88 +74,57 @@ class LearnPanel(Static):
             self._render_summary()
 
     def _render_summary(self) -> None:
-        if not self._data:
-            self.update("[Learn Module]\nNo data")
+        if not self._data or not self._text_widget:
             return
-
         lines = [
-            f"[b]Learn Module[/b] [{Colors.STAGE_LEARN}]",
-            f"",
-            f"[b]Status:[/b] {self._data.status}",
-            f"[b]Records:[/b] {self._data.records}",
-            f"[b]Focus:[/b] {self._data.focus}",
-            f"[b]Source:[/b] {self._data.source}",
+            f"[b]◆ Learn Module[/b] [{Colors.STAGE_LEARN}]",
             "",
-            "[b][详情][/b]",
+            f"Status          : {self._data.status}",
+            f"Records         : {self._data.records}",
+            f"Focus           : {self._data.focus}",
+            f"Source          : {self._data.source}",
         ]
-        self.update("\n".join(lines))
+        self._text_widget.update("\n".join(lines))
 
     def _render_detail(self) -> None:
-        """Render the expanded detail view with 4 categories."""
-        if not self._detail_view:
-            self.update("[Learn Module]\nNo detail data")
+        if not self._detail_view or not self._text_widget:
             return
-
         lines = [
             f"[b]Learn Detail View[/b] [{Colors.STAGE_LEARN}]",
             "",
             "[b]Verified Fixes[/b]",
         ]
-
         for item in self._detail_view.verified_fixes:
             pinned = " 📌" if item.get("pinned") else ""
             status_icon = "✅" if item.get("verify_status") == "passed" else "⏳"
             lines.append(f"  {status_icon} {item.get('title', '')}{pinned}")
             lines.append(f"      {item.get('summary', '')}")
-
         lines.extend(["", "[b]Issue Patterns[/b]"])
         for item in self._detail_view.issue_patterns:
             pinned = " 📌" if item.get("pinned") else ""
             lines.append(f"  • {item.get('title', '')}{pinned}")
             lines.append(f"      {item.get('summary', '')}")
-
         lines.extend(["", "[b]Project Facts[/b]"])
         for item in self._detail_view.project_facts:
             lines.append(f"  ▸ {item.get('title', '')}")
-
         lines.extend(["", "[b]User Rules[/b]"])
         for item in self._detail_view.user_rules:
             pinned = " 📌" if item.get("pinned") else ""
             lines.append(f"  ★ {item.get('title', '')}{pinned}")
+        lines.extend(["", "[Esc] 返回"])
+        self._text_widget.update("\n".join(lines))
 
-        lines.extend([
-            "",
-            "[b]操作:[/b] [A]accept  [E]edit  [R]reject  [P]pin  [D]delete  [Esc]返回",
-        ])
 
-        self.update("\n".join(lines))
+class LearnAction(Message):
+    """Message emitted when user takes an action on a learn record."""
 
-    def action_accept(self) -> None:
-        self._emit_action("accept")
+    def __init__(self, action: str, panel: LearnPanel) -> None:
+        super().__init__()
+        self.action = action
+        self.panel = panel
 
-    def action_reject(self) -> None:
-        self._emit_action("reject")
 
-    def action_edit(self) -> None:
-        self._emit_action("edit")
 
-    def action_pin(self) -> None:
-        self._emit_action("pin")
-
-    def action_delete(self) -> None:
-        self._emit_action("delete")
-
-    def action_return(self) -> None:
-        if self._data:
-            self._data.is_detail = False
-            self._update_display()
-
-    def _emit_action(self, action: str) -> None:
-        from textual.message import Message
-        self.post_message(LearnAction(action, self))
-
-    def on_mount(self) -> None:
-        self._update_display()
 
 
 class LearnAction(Message):
