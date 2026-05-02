@@ -144,7 +144,7 @@ class PipelineIntegration:
             raise
 
     def pause(self) -> None:
-        self.state_machine.pause()
+        self.state_machine.request_pause()
 
     def resume(self) -> None:
         self.state_machine.resume()

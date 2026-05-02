@@ -45,8 +45,8 @@ class StateMachineControlAdapter(PipelineControlPort):
             )
 
     async def pause(self) -> ControlResult:
+        self._sm_getter().request_pause()
         sm = self._sm_getter()
-        sm.state.pause()
         return ControlResult(
             status="paused",
             message=f"Paused at {sm.state.current_stage.value}",
@@ -57,20 +57,20 @@ class StateMachineControlAdapter(PipelineControlPort):
         )
 
     async def resume(self) -> ControlResult:
-        # Full resume requires checkpoint support in state machine.
-        # This re-runs from the current stage as a stand-in.
+        sm = self._sm_getter()
+        sm.resume()
         return ControlResult(
             status="resumed",
-            message="Resume requested — re-runs from current stage",
+            message=f"Resumed from {sm.state.current_stage.value}",
             data={
-                "current_stage": self._sm_getter().state.current_stage.value,
-                "progress": self._sm_getter().state.progress,
+                "current_stage": sm.state.current_stage.value,
+                "progress": sm.state.progress,
             },
         )
 
     async def retry(self, target: RetryTarget | None = None) -> ControlResult:
-        sm = self._sm_getter()
         target = target or RetryTarget(kind="last_failed")
+        sm = self._sm_getter()
 
         stage_to_retry: PipelineStage | None = None
         if target.kind == "stage" and target.stage_name:
@@ -80,11 +80,19 @@ class StateMachineControlAdapter(PipelineControlPort):
                 if status == StageStatus.FAILED:
                     stage_to_retry = stage
                     break
+        elif target.kind == "issue" and target.issue_id:
+            for stage, status in sm.state.stages.items():
+                if status == StageStatus.FAILED:
+                    stage_to_retry = stage
+                    break
 
         if stage_to_retry is None:
             return ControlResult(status="failed", message="No failed stage found to retry")
 
-        sm.state.stages[stage_to_retry] = StageStatus.PENDING
+        success = sm.retry_stage(stage_to_retry)
+        if not success:
+            return ControlResult(status="failed", message=f"Could not retry {stage_to_retry.value}")
+
         return ControlResult(
             status="retrying",
             message=f"Retry queued for {stage_to_retry.value}",
