@@ -2,17 +2,27 @@
 
 from __future__ import annotations
 
-from textual.widgets import Static
+from textual.app import ComposeResult
+from textual.containers import Vertical
+from textual.widget import Widget
 from to_vibe.tui.state_store import TUIStateStore
 from to_vibe.tui.state_models import RepairData
 
 
-class RepairPanel(Static):
+class RepairPanel(Widget):
     """Repair panel showing current repair loop state.
 
     Displayed at the top of LogsPanel — shows selected issue,
     capability, mode, apply status, record path, next action,
     and latest event/timestamp.
+
+    Layout (per TUI_DESIGN.md):
+    ┌──────────────────────────────────────────────────────────┐
+    │ ▶ Selected : issue  | Cap : capability                   │
+    │   Mode : mode      | Apply : status                     │
+    │   Record : path    | Next : action                      │
+    │ ▶ Latest : event @ timestamp                            │
+    └──────────────────────────────────────────────────────────┘
     """
 
     def __init__(self, store: TUIStateStore, **kwargs: object) -> None:
@@ -40,16 +50,22 @@ class RepairPanel(Static):
             self.update("[Repair Loop]\nNo data")
             return
 
+        # Key-value pairs in 2-column grid layout
+        issue = self._data.selected_issue or "—"
+        cap = self._data.capability or "—"
+        mode = self._data.mode
+        apply = self._data.apply
+        record = self._data.record
+        next_action = self._data.next_action or "—"
+        latest_event = self._data.latest_event or "—"
+        latest_time = self._data.latest_time or "—"
+
         lines = [
             "[b]◆ Repair Loop[/b]",
             "",
-            f"Issue    : {self._data.selected_issue or '—'}",
-            f"Cap      : {self._data.capability or '—'}",
-            f"Mode     : {self._data.mode}",
-            f"Apply    : {self._data.apply}",
-            f"Record   : {self._data.record}",
-            f"Next     : {self._data.next_action or '—'}",
-            f"Event    : {self._data.latest_event or '—'}",
-            f"Time     : {self._data.latest_time or '—'}",
+            f"▶  Selected  : {issue}  |  Cap : {cap}",
+            f"   Mode      : {mode}   |  Apply : {apply}",
+            f"   Record    : {record}  |  Next : {next_action}",
+            f"▶  Latest    : {latest_event}  @ {latest_time}",
         ]
         self.update("\n".join(lines))

@@ -17,8 +17,229 @@ class ToVibeApp(App):
     """Main to-vibe TUI application."""
 
     CSS = """
+    /* === Color Variables === */
+    :root {
+        --color-surface: #0b1015;
+        --color-surface-light: #161b22;
+        --color-text: #cdd6f4;
+        --color-text-muted: #6c7086;
+        --color-evidence: #238636;
+        --color-priority: #d29922;
+        --color-verify: #da3633;
+        --color-repair: #1f6feb;
+        --color-learn: #a371f7;
+        --color-pass: #238636;
+        --color-fail: #da3633;
+        --color-skip: #d29922;
+        --color-active: #1f6feb;
+        --color-info: #238636;
+        --color-warn: #d29922;
+        --color-error: #da3633;
+        --color-shortcut: #d29922;
+    }
+
+    /* === Base === */
     Screen {
-        background: $surface;
+        background: var(--color-surface);
+        color: var(--color-text);
+    }
+
+    /* === Main Layout === */
+    /* Header + command bar + session info stack */
+    #app-header {
+        height: auto;
+        padding: 0 8;
+        background: var(--color-surface-light);
+        border-bottom: solid var(--color-text-muted);
+    }
+
+    /* Tab bar below header */
+    #tab-bar {
+        height: 3;
+        padding: 0 8;
+        background: var(--color-surface-light);
+        border-bottom: solid #30363d;
+    }
+
+    /* Tab buttons */
+    .tab-btn {
+        margin: 0 2;
+        min-width: 16;
+    }
+
+    /* === Main 4:6 Split === */
+    #chat-panel {
+        width: 40%;
+        border-right: solid #30363d;
+    }
+
+    #to-vibe-panel {
+        width: 60%;
+    }
+
+    # === ToVibe Bento Grid === */
+    #bento-grid {
+        height: 100%;
+        layout: horizontal;
+    }
+
+    #left-col {
+        width: 40%;
+        layout: vertical;
+        height: 100%;
+    }
+
+    #right-col {
+        width: 60%;
+        layout: vertical;
+        height: 100%;
+    }
+
+    #verify-table {
+        height: 1fr;
+        border: solid var(--color-verify);
+        border-radius: 4;
+        padding: 4 8;
+        margin: 4;
+    }
+
+    #learn-summary {
+        height: auto;
+        border: solid var(--color-learn);
+        border-radius: 4;
+        padding: 4 8;
+        margin: 4;
+    }
+
+    /* === Card Borders === */
+    #evidence-card {
+        border: solid var(--color-evidence);
+        border-radius: 4;
+        padding: 4 8;
+        margin: 4;
+        height: 1fr;
+    }
+
+    #priority-card {
+        border: solid var(--color-priority);
+        border-radius: 4;
+        padding: 4 8;
+        margin: 4;
+        height: 1fr;
+    }
+
+    #verify-table {
+        border: solid var(--color-verify);
+        border-radius: 4;
+        padding: 4 8;
+        margin: 4;
+        height: 1fr;
+    }
+
+    #learn-summary {
+        border: solid var(--color-learn);
+        border-radius: 4;
+        padding: 4 8;
+        margin: 4;
+        height: auto;
+    }
+
+    /* === Stage Bar === */
+    #stage-bar {
+        height: 3;
+        padding: 0 8;
+        background: var(--color-surface-light);
+        border-top: solid #30363d;
+        border-bottom: solid #30363d;
+    }
+
+    /* === Logs Panel 3-Column === */
+    #repair-panel {
+        border: solid var(--color-repair);
+        border-radius: 4;
+        padding: 4 8;
+        margin: 4;
+        height: auto;
+    }
+
+    #logs-content {
+        layout: horizontal;
+        height: 1fr;
+    }
+
+    #log-stream {
+        width: 60%;
+        padding: 4 8;
+        border-top: solid #30363d;
+    }
+
+    #log-filters {
+        height: 3;
+        padding: 0 8;
+    }
+
+    .log-filter-btn {
+        margin: 0 2;
+        min-width: 10;
+    }
+
+    #learn-panel {
+        width: 20%;
+        border: solid var(--color-learn);
+        border-radius: 4;
+        padding: 4 8;
+        margin: 4;
+        height: 100%;
+    }
+
+    #artifacts-panel {
+        width: 20%;
+        border: solid var(--color-learn);
+        border-radius: 4;
+        padding: 4 8;
+        margin: 4;
+        height: 100%;
+    }
+
+    /* === Learn Detail View === */
+    #learn-detail {
+        layout: grid;
+        grid-size: 2 3;
+        grid-columns: 1fr 1fr;
+        padding: 4 8;
+        height: 100%;
+    }
+
+    .learn-section {
+        padding: 4;
+        border: solid var(--color-learn);
+        border-radius: 4;
+        margin: 2;
+    }
+
+    /* === Footer === */
+    #app-footer {
+        height: 3;
+        padding: 0 8;
+        background: var(--color-surface-light);
+        border-top: solid #30363d;
+    }
+
+    /* === Repair Panel Key-Value Grid === */
+    .repair-grid {
+        layout: grid;
+        grid-size: 2 3;
+        grid-columns: 1fr 1fr;
+        width: 100%;
+    }
+
+    .repair-kv {
+        padding: 0 4;
+    }
+
+    .repair-event {
+        column-span: 2;
+        padding: 0 4;
     }
     """
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from textual.app import ComposeResult
+from textual.containers import Vertical, Horizontal
 from textual.widget import Widget
 
 from to_vibe.tui.components.log_stream import LogStream
@@ -15,9 +16,9 @@ from to_vibe.tui.state_store import TUIStateStore
 class LogsPanel(Widget):
     """Logs panel with RepairPanel on top + 3-column layout below.
 
-    Layout:
+    Layout (per TUI_DESIGN.md):
     ┌──────────────────────────────────────────────────────────┐
-    │  RepairPanel (full width, collapsible)                    │
+    │  RepairPanel (full width)                                │
     ├──────────────────────────┬──────────────┬───────────────┤
     │ LogStream (60%)          │ Learn (20%)  │ Artifacts(20%)│
     └──────────────────────────┴──────────────┴───────────────┘
@@ -30,6 +31,10 @@ class LogsPanel(Widget):
     def compose(self) -> ComposeResult:
         """Compose RepairPanel at top, then 3-column layout."""
         yield RepairPanel(self._store, id="repair-panel")
-        yield LogStream(self._store, id="log-stream")
-        yield LearnPanel(self._store, id="learn-panel")
-        yield Artifacts(self._store, id="artifacts-panel")
+        content = Horizontal(id="logs-content")
+        content.add_children([
+            LogStream(self._store, id="log-stream"),
+            LearnPanel(self._store, id="learn-panel"),
+            Artifacts(self._store, id="artifacts-panel"),
+        ])
+        yield content
