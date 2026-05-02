@@ -26,7 +26,7 @@ class GenericLLMClient:
 
     Protocol-specific behavior lives in LLMProtocol:
       - headers(config) — all HTTP headers including auth + extra_headers
-      - chat_endpoint() — path component of the URL
+      - endpoint_path() — path after base_url (base_url includes /v1 segment)
       - build_request(req: LLMRequest) — request body
       - extract_content / extract_chunk — response parsing
     """
@@ -40,9 +40,9 @@ class GenericLLMClient:
     # ------------------------------------------------------------------
 
     def _url(self) -> str:
-        """Full URL for chat completions."""
+        """Full URL for chat completions: base_url (API root) + endpoint_path."""
         base = self.config.resolved_base_url()
-        path = self._protocol.chat_endpoint()
+        path = self._protocol.endpoint_path()
         if base:
             return f"{base}{path}"
         return path

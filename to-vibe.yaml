@@ -7,11 +7,11 @@ version: "2.0"
 # 用户直接配置 base_url + api_key + model，protocol 决定请求格式
 # provider 作为可选预设别名，仅在 base_url 为空时提供默认地址
 llm:
-  provider: "anthropic"  # 'anthropic' | 'openai' | 'deepseek' | 'openrouter' | 'siliconflow' | 'ollama' | 'lm-studio' | 'custom'
-  base_url: ""           # API 根地址，如 https://api.anthropic.com/v1；留空则用 provider 预设
-  api_key: "${ANTHROPIC_API_KEY}"
-  model: "claude-sonnet-4-7"
-  protocol: "anthropic"  # 'anthropic' | 'openai-compatible' — 决定 auth 格式、endpoint 路径、body 结构
+  provider: "custom"
+  base_url: "https://api.minimaxi.com/anthropic/v1"  # API root（含 /v1），endpoint_path 只追加如 /messages
+  api_key: "${MINIMAX_API_KEY}"
+  model: "MiniMax-M2.7"
+  protocol: "anthropic"
   max_tokens: 4096
   temperature: 0.7
   timeout: 30

@@ -9,6 +9,9 @@ from to_vibe.llm.request import LLMRequest
 class LLMProtocol:
     """Single place for protocol behavior — auth format, endpoint path, body shape.
 
+    Convention: base_url is the API root (includes /v1 segment).
+    endpoint_path() returns only the path after the base_url.
+
     Extend this class to add new protocols (e.g. vertex-ai, bedrock, etc.)
     without touching client.py or LLMConfig.
     """
@@ -18,8 +21,13 @@ class LLMProtocol:
         """Unique identifier for this protocol."""
         raise NotImplementedError
 
-    def chat_endpoint(self) -> str:
-        """Return the chat completions endpoint path."""
+    def endpoint_path(self) -> str:
+        """Return the path after base_url (no leading /v1 segment).
+
+        base_url already includes /v1 or equivalent.
+        Example: base_url="https://api.anthropic.com/v1" + endpoint_path="/messages"
+                 → "https://api.anthropic.com/v1/messages"
+        """
         raise NotImplementedError
 
     def headers(self, config: LLMConfig) -> dict[str, str]:
@@ -49,14 +57,18 @@ class LLMProtocol:
 
 
 class AnthropicProtocol(LLMProtocol):
-    """Anthropic API protocol — uses x-api-key, /v1/messages, thinking blocks."""
+    """Anthropic API protocol — uses x-api-key, /messages, thinking blocks.
+
+    base_url convention: includes /v1 segment.
+    e.g. "https://api.anthropic.com/v1" → endpoint_path="/messages"
+    """
 
     @property
     def name(self) -> str:
         return "anthropic"
 
-    def chat_endpoint(self) -> str:
-        return "/v1/messages"
+    def endpoint_path(self) -> str:
+        return "/messages"
 
     def headers(self, config: LLMConfig) -> dict[str, str]:
         h: dict[str, str] = {
@@ -95,14 +107,18 @@ class AnthropicProtocol(LLMProtocol):
 
 
 class OpenAICompatibleProtocol(LLMProtocol):
-    """OpenAI-compatible protocol — uses Authorization: Bearer, /v1/chat/completions."""
+    """OpenAI-compatible protocol — uses Authorization: Bearer, /chat/completions.
+
+    base_url convention: includes /v1 segment.
+    e.g. "https://api.deepseek.com/v1" → endpoint_path="/chat/completions"
+    """
 
     @property
     def name(self) -> str:
         return "openai-compatible"
 
-    def chat_endpoint(self) -> str:
-        return "/v1/chat/completions"
+    def endpoint_path(self) -> str:
+        return "/chat/completions"
 
     def headers(self, config: LLMConfig) -> dict[str, str]:
         h: dict[str, str] = {
