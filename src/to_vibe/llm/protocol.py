@@ -9,9 +9,6 @@ from to_vibe.llm.request import LLMRequest
 class LLMProtocol:
     """Single place for protocol behavior — auth format, endpoint path, body shape.
 
-    Convention: base_url is the API root (includes /v1 segment).
-    endpoint_path() returns only the path after the base_url.
-
     Extend this class to add new protocols (e.g. vertex-ai, bedrock, etc.)
     without touching client.py or LLMConfig.
     """
@@ -21,12 +18,11 @@ class LLMProtocol:
         """Unique identifier for this protocol."""
         raise NotImplementedError
 
-    def endpoint_path(self) -> str:
-        """Return the path after base_url (no leading /v1 segment).
+    def default_endpoint_path(self) -> str:
+        """Default completions path for this protocol.
 
-        base_url already includes /v1 or equivalent.
-        Example: base_url="https://api.anthropic.com/v1" + endpoint_path="/messages"
-                 → "https://api.anthropic.com/v1/messages"
+        Used when LLMConfig.endpoint_path is not set.
+        Users can override via endpoint_path in to-vibe.yaml.
         """
         raise NotImplementedError
 
@@ -57,17 +53,28 @@ class LLMProtocol:
 
 
 class AnthropicProtocol(LLMProtocol):
-    """Anthropic API protocol — uses x-api-key, /messages, thinking blocks.
+    """Anthropic API protocol — uses x-api-key, thinking blocks.
 
-    base_url convention: includes /v1 segment.
-    e.g. "https://api.anthropic.com/v1" → endpoint_path="/messages"
+    Auth: x-api-key header.
+    Default endpoint: /v1/messages (override via LLMConfig.endpoint_path).
+
+    Examples:
+      Anthropic direct:
+        base_url: "https://api.anthropic.com/v1"
+        endpoint_path: "/messages"  (or rely on protocol default)
+        → "https://api.anthropic.com/v1/messages"
+
+      OpenRouter anthropic-compatible:
+        base_url: "https://openrouter.ai/api"
+        endpoint_path: "/v1/messages"
+        → "https://openrouter.ai/api/v1/messages"
     """
 
     @property
     def name(self) -> str:
         return "anthropic"
 
-    def endpoint_path(self) -> str:
+    def default_endpoint_path(self) -> str:
         return "/messages"
 
     def headers(self, config: LLMConfig) -> dict[str, str]:
@@ -107,18 +114,29 @@ class AnthropicProtocol(LLMProtocol):
 
 
 class OpenAICompatibleProtocol(LLMProtocol):
-    """OpenAI-compatible protocol — uses Authorization: Bearer, /chat/completions.
+    """OpenAI-compatible protocol — uses Authorization: Bearer.
 
-    base_url convention: includes /v1 segment.
-    e.g. "https://api.deepseek.com/v1" → endpoint_path="/chat/completions"
+    Auth: Authorization: Bearer header.
+    Default endpoint: /v1/chat/completions (override via LLMConfig.endpoint_path).
+
+    Examples:
+      OpenAI / DeepSeek:
+        base_url: "https://api.openai.com/v1"
+        endpoint_path: "/chat/completions"  (or rely on protocol default)
+        → "https://api.openai.com/v1/chat/completions"
+
+      OpenRouter:
+        base_url: "https://openrouter.ai/api/v1"
+        endpoint_path: "/chat/completions"
+        → "https://openrouter.ai/api/v1/chat/completions"
     """
 
     @property
     def name(self) -> str:
         return "openai-compatible"
 
-    def endpoint_path(self) -> str:
-        return "/chat/completions"
+    def default_endpoint_path(self) -> str:
+        return "/v1/chat/completions"
 
     def headers(self, config: LLMConfig) -> dict[str, str]:
         h: dict[str, str] = {

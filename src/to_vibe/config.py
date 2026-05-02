@@ -22,12 +22,19 @@ class LLMConfig:
     api_key: str = ""
     model: str = ""
     protocol: str = "openai-compatible"
+    endpoint_path: str = ""
     max_tokens: int = 4096
     temperature: float = 0.7
     timeout: int = 30
     stream: bool = True
-    # Extra headers merged into every request (e.g. HTTP-Referer, X-Title for OpenRouter)
     extra_headers: dict[str, str] = field(default_factory=dict)
+
+    def resolved_endpoint(self) -> str:
+        """Return endpoint_path if set, else use protocol default."""
+        if self.endpoint_path:
+            return self.endpoint_path
+        from to_vibe.llm.protocol import get_protocol
+        return get_protocol(self.protocol).default_endpoint_path()
 
     def resolved_base_url(self) -> str:
         """Get the base URL, using provider preset if base_url is empty."""

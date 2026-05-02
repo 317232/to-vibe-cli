@@ -25,10 +25,13 @@ class GenericLLMClient:
       - Building the full URL from base_url + endpoint
 
     Protocol-specific behavior lives in LLMProtocol:
+      - default_endpoint_path() — protocol default path
       - headers(config) — all HTTP headers including auth + extra_headers
-      - endpoint_path() — path after base_url (base_url includes /v1 segment)
       - build_request(req: LLMRequest) — request body
       - extract_content / extract_chunk — response parsing
+
+    Note: LLMConfig.resolved_endpoint() allows user override of endpoint_path
+    via to-vibe.yaml, enabling OpenRouter / custom gateway configurations.
     """
 
     def __init__(self, config: LLMConfig) -> None:
@@ -40,9 +43,9 @@ class GenericLLMClient:
     # ------------------------------------------------------------------
 
     def _url(self) -> str:
-        """Full URL for chat completions: base_url (API root) + endpoint_path."""
+        """Full URL: resolved_base_url + resolved_endpoint (allows user override)."""
         base = self.config.resolved_base_url()
-        path = self._protocol.endpoint_path()
+        path = self.config.resolved_endpoint()
         if base:
             return f"{base}{path}"
         return path
