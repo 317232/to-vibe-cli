@@ -40,7 +40,8 @@ class LearnPanel(Container):
     def compose(self) -> ComposeResult:
         self._text_widget = Static(id="learn-text")
         self._detail_button = Button("[详情]", id="learn-detail-btn", variant="primary")
-        self._detail_grid = Container(id="learn-detail-grid", display=False)
+        self._detail_grid = Container(id="learn-detail-grid")
+        self._detail_grid.display = False
         yield Vertical(self._text_widget, self._detail_button, self._detail_grid)
 
     def on_mount(self) -> None:

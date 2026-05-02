@@ -104,16 +104,22 @@ class ArtifactCollector:
             project_id = hashlib.md5(str(self.project_path).encode()).hexdigest()[:8]
 
             # P0 blockers become high-priority issue patterns
-            for blocker in data.get("blockers", []):
-                candidates.append(LearnCandidate(
-                    record_type=LearnType.ISSUE_PATTERN,
-                    title=f"[P0] {blocker.get('title', 'Blocker')[:80]}",
-                    summary=blocker.get("description", ""),
-                    source_artifact="priority-report.json",
-                    evidence_refs=blocker.get("evidence_refs", []),
-                    confidence=0.9,
-                    project_id=project_id,
-                ))
+            # blockers can be int (count) or list of issue dicts
+            raw_blockers = data.get("blockers", [])
+            if isinstance(raw_blockers, list):
+                for blocker in raw_blockers:
+                    candidates.append(LearnCandidate(
+                        record_type=LearnType.ISSUE_PATTERN,
+                        title=f"[P0] {blocker.get('title', 'Blocker')[:80]}",
+                        summary=blocker.get("description", ""),
+                        source_artifact="priority-report.json",
+                        evidence_refs=blocker.get("evidence_refs", []),
+                        confidence=0.9,
+                        project_id=project_id,
+                    ))
+            elif isinstance(raw_blockers, int) and raw_blockers > 0:
+                # Count only — no detailed blocker info
+                pass
 
             # P1 issues
             for issue in data.get("high_priority", []):

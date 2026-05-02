@@ -115,8 +115,6 @@ class TabBar(Horizontal):
                 btn.styles.border = ("solid", "#d29922")
             else:
                 btn.variant = "default"
-                btn.styles.color = ""
-                btn.styles.border = ("none", "")
 
     def action_next_tab(self) -> None:
         """Advance to next tab."""
