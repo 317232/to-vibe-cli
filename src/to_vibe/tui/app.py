@@ -13,51 +13,51 @@ from to_vibe.tui.screens.main_screen import MainScreen
 from to_vibe.tui.state_store import TUIStateStore
 
 
+# Textual theme variable defaults — exposed as $color-name in CSS
+APP_THEME_VARIABLES = {
+    "color-surface": "#0b1015",
+    "color-surface-light": "#161b22",
+    "color-text": "#cdd6f4",
+    "color-text-muted": "#6c7086",
+    "color-evidence": "#238636",
+    "color-priority": "#d29922",
+    "color-verify": "#da3633",
+    "color-repair": "#1f6feb",
+    "color-learn": "#a371f7",
+    "color-pass": "#238636",
+    "color-fail": "#da3633",
+    "color-skip": "#d29922",
+    "color-active": "#1f6feb",
+    "color-info": "#238636",
+    "color-warn": "#d29922",
+    "color-error": "#da3633",
+    "color-shortcut": "#d29922",
+}
+
+
 class ToVibeApp(App):
     """Main to-vibe TUI application."""
 
     CSS = """
-    /* === Color Variables === */
-    :root {
-        --color-surface: #0b1015;
-        --color-surface-light: #161b22;
-        --color-text: #cdd6f4;
-        --color-text-muted: #6c7086;
-        --color-evidence: #238636;
-        --color-priority: #d29922;
-        --color-verify: #da3633;
-        --color-repair: #1f6feb;
-        --color-learn: #a371f7;
-        --color-pass: #238636;
-        --color-fail: #da3633;
-        --color-skip: #d29922;
-        --color-active: #1f6feb;
-        --color-info: #238636;
-        --color-warn: #d29922;
-        --color-error: #da3633;
-        --color-shortcut: #d29922;
-    }
-
     /* === Base === */
     Screen {
-        background: var(--color-surface);
-        color: var(--color-text);
+        background: $color-surface;
+        color: $color-text;
     }
 
     /* === Main Layout === */
-    /* Header + command bar + session info stack */
     #app-header {
         height: auto;
         padding: 0 8;
-        background: var(--color-surface-light);
-        border-bottom: solid var(--color-text-muted);
+        background: $color-surface-light;
+        border-bottom: solid $color-text-muted;
     }
 
     /* Tab bar below header */
     #tab-bar {
         height: 3;
         padding: 0 8;
-        background: var(--color-surface-light);
+        background: $color-surface-light;
         border-bottom: solid #30363d;
     }
 
@@ -77,7 +77,7 @@ class ToVibeApp(App):
         width: 60%;
     }
 
-    # === ToVibe Bento Grid === */
+    /* === ToVibe Bento Grid === */
     #bento-grid {
         height: 100%;
         layout: horizontal;
@@ -95,50 +95,30 @@ class ToVibeApp(App):
         height: 100%;
     }
 
-    #verify-table {
-        height: 1fr;
-        border: solid var(--color-verify);
-        border-radius: 4;
-        padding: 4 8;
-        margin: 4;
-    }
-
-    #learn-summary {
-        height: auto;
-        border: solid var(--color-learn);
-        border-radius: 4;
-        padding: 4 8;
-        margin: 4;
-    }
-
     /* === Card Borders === */
     #evidence-card {
-        border: solid var(--color-evidence);
-        border-radius: 4;
+        border: solid $color-evidence;
         padding: 4 8;
         margin: 4;
         height: 1fr;
     }
 
     #priority-card {
-        border: solid var(--color-priority);
-        border-radius: 4;
+        border: solid $color-priority;
         padding: 4 8;
         margin: 4;
         height: 1fr;
     }
 
     #verify-table {
-        border: solid var(--color-verify);
-        border-radius: 4;
+        border: solid $color-verify;
         padding: 4 8;
         margin: 4;
         height: 1fr;
     }
 
     #learn-summary {
-        border: solid var(--color-learn);
-        border-radius: 4;
+        border: solid $color-learn;
         padding: 4 8;
         margin: 4;
         height: auto;
@@ -148,15 +128,14 @@ class ToVibeApp(App):
     #stage-bar {
         height: 3;
         padding: 0 8;
-        background: var(--color-surface-light);
+        background: $color-surface-light;
         border-top: solid #30363d;
         border-bottom: solid #30363d;
     }
 
     /* === Logs Panel 3-Column === */
     #repair-panel {
-        border: solid var(--color-repair);
-        border-radius: 4;
+        border: solid $color-repair;
         padding: 4 8;
         margin: 4;
         height: auto;
@@ -185,8 +164,7 @@ class ToVibeApp(App):
 
     #learn-panel {
         width: 20%;
-        border: solid var(--color-learn);
-        border-radius: 4;
+        border: solid $color-learn;
         padding: 4 8;
         margin: 4;
         height: 100%;
@@ -194,8 +172,7 @@ class ToVibeApp(App):
 
     #artifacts-panel {
         width: 20%;
-        border: solid var(--color-learn);
-        border-radius: 4;
+        border: solid $color-learn;
         padding: 4 8;
         margin: 4;
         height: 100%;
@@ -212,8 +189,7 @@ class ToVibeApp(App):
 
     .learn-section {
         padding: 4;
-        border: solid var(--color-learn);
-        border-radius: 4;
+        border: solid $color-learn;
         margin: 2;
     }
 
@@ -221,7 +197,7 @@ class ToVibeApp(App):
     #app-footer {
         height: 3;
         padding: 0 8;
-        background: var(--color-surface-light);
+        background: $color-surface-light;
         border-top: solid #30363d;
     }
 
@@ -271,6 +247,10 @@ class ToVibeApp(App):
 
         self.title = "to-vibe"
         self.sub_title = str(self.project_path)
+
+    def get_theme_variable_defaults(self) -> dict[str, str]:
+        """Expose app-specific color variables to CSS via $color-name syntax."""
+        return APP_THEME_VARIABLES
 
     def on_mount(self) -> None:
         """Handle mount event."""

@@ -11,7 +11,7 @@ from to_vibe.learn.models import LearnCandidate, LearnType
 from to_vibe.utils.logger import get_logger
 
 
-class LearnCollector:
+class ArtifactCollector:
     """Collects learning candidates from pipeline artifacts.
 
     Follows the 7-step flow: Collect → Filter → Summarize → Validate → Review → Store → Retrieve

@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from to_vibe.learn.collector import LearnCollector as _Collector
+from to_vibe.learn.collector import ArtifactCollector
 from to_vibe.learn.models import LearnCandidate, LearnRecord, LearnType, ReviewAction, VerifyStatus
 from to_vibe.learn.storage import LearnStorage
 from to_vibe.utils.logger import get_logger
@@ -43,7 +43,7 @@ class LearnEngine:
     def __init__(self, project_path: str | Path) -> None:
         self.project_path = Path(project_path)
         self.logger = get_logger()
-        self.collector = _Collector(project_path)
+        self.collector = ArtifactCollector(project_path)
         self.storage = LearnStorage(project_path)
         self._project_id = self._calc_project_id()
 
@@ -145,7 +145,7 @@ class LearnEngine:
         summary_path.write_text("".join(lines), encoding="utf-8")
 
 
-class LearnCollector:
+class LegacyLearnCollector:
     """Legacy wrapper for existing LearnCollector interface."""
 
     def __init__(self, project_path: str | Path, config: Any | None = None) -> None:
