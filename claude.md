@@ -1,6 +1,32 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+to-vibe-cli 的目标是把 vibe coding 输出压实为可验证、可恢复、可修复的工程流程,做成可视化 cli。
+
+因此，当用户指出 pipeline、handler、TUI、Learn、Repair、Verify、Evidence、Priority、Baseline 等模块的问题时，你必须直接进入实现模式。
+
+## 默认模块决策
+
+- MCP handler 问题：优先查看 src/to_vibe/mcp/
+- pipeline 问题：优先查看 src/to_vibe/pipeline/
+- learn 问题：优先查看 src/to_vibe/learn/
+- repair 问题：优先查看 src/to_vibe/repair/
+- verify 问题：优先查看 src/to_vibe/verify/
+- TUI 问题：优先查看 src/to_vibe/tui/ 或 src/to_vibe/ui/
+- CLI 命令问题：优先查看 src/to_vibe/cli/
+
+## 默认行为
+
+- 已有 pipeline 未接线：直接接线；
+- handler 只是 mock：替换为真实 pipeline 调用；
+- UI 有占位但无数据：接入真实状态模型；
+- Learn 状态存在但详情缺失：实现详情展开视图；
+- log filter 缺失：实现 INFO/WARN/ERROR 过滤；
+- artifacts 列表缺失：接入产物路径；
+- import 错误：直接修复；
+- 类型定义不一致：统一模型定义；
+- 状态字段缺失：补齐 typed model。
+
+不要询问用户这些内部实现细节。
 
 ## Project Overview
 

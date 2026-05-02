@@ -31,10 +31,7 @@ class LogsPanel(Widget):
     def compose(self) -> ComposeResult:
         """Compose RepairPanel at top, then 3-column layout."""
         yield RepairPanel(self._store, id="repair-panel")
-        content = Horizontal(id="logs-content")
-        content.add_children([
-            LogStream(self._store, id="log-stream"),
-            LearnPanel(self._store, id="learn-panel"),
-            Artifacts(self._store, id="artifacts-panel"),
-        ])
-        yield content
+        with Horizontal(id="logs-content"):
+            yield LogStream(self._store, id="log-stream")
+            yield LearnPanel(self._store, id="learn-panel")
+            yield Artifacts(self._store, id="artifacts-panel")

@@ -5,7 +5,7 @@ from __future__ import annotations
 from textual.app import ComposeResult
 from textual.containers import Horizontal
 from textual.screen import Screen
-from textual.widgets import Button
+from textual.widgets import Button, Static
 
 from to_vibe.tui.components.header import Header
 from to_vibe.tui.components.footer import Footer
@@ -73,7 +73,16 @@ class MainScreen(Screen):
 
 
 class TabBar(Horizontal):
-    """Horizontal tab bar using Button widgets."""
+    """Horizontal tab bar with active tab highlighted in orange.
+
+    Active: orange border (#d29922) + orange text (#d29922)
+    Inactive: muted text (#6c7086)
+    """
+
+    BINDINGS = [
+        ("tab", "next_tab", ""),
+        ("shift+tab", "prev_tab", ""),
+    ]
 
     def __init__(self, tabs: list[str], labels: list[str], **kwargs: object) -> None:
         super().__init__(**kwargs)
@@ -100,5 +109,28 @@ class TabBar(Horizontal):
         """Set the active tab by index."""
         self._active = index
         for i, btn in enumerate(self._tab_buttons):
-            btn.variant = "primary" if i == index else "default"
+            if i == index:
+                btn.variant = "primary"
+                btn.styles.color = "#d29922"
+                btn.styles.border = ("solid", "#d29922")
+            else:
+                btn.variant = "default"
+                btn.styles.color = ""
+                btn.styles.border = ("none", "")
+
+    def action_next_tab(self) -> None:
+        """Advance to next tab."""
+        screen = self.screen
+        if isinstance(screen, MainScreen):
+            screen.switch_tab(1)
+        else:
+            self.set_active((self._active + 1) % len(self._tab_buttons))
+
+    def action_prev_tab(self) -> None:
+        """Go to previous tab."""
+        screen = self.screen
+        if isinstance(screen, MainScreen):
+            screen.switch_tab(-1)
+        else:
+            self.set_active((self._active - 1) % len(self._tab_buttons))
 

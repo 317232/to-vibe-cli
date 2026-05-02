@@ -18,6 +18,7 @@ from to_vibe.tui.state_models import (
     VerifyRow,
     RepairData,
     LearnData,
+    LearnDetailView,
     LogEntry,
     ArtifactItem,
 )
@@ -110,15 +111,9 @@ class PipelineIntegration:
             PipelineEventBus.stage_complete("verify")
 
             rows = []
-            for i, (check_name, status) in enumerate([
-                ("Environment", verify_result.environment_status),
-                ("Dependencies", verify_result.dependencies_status),
-                ("Build", verify_result.build_status),
-                ("Start", verify_result.start_status),
-                ("Smoke Test", verify_result.smoke_test_status),
-            ], 1):
-                status_str = status.value if hasattr(status, "value") else str(status)
-                rows.append(VerifyRow(id=i, check=check_name, status=status_str, command=f"L{i} check"))
+            for i, layer in enumerate(verify_result.layer_results, 1):
+                status_str = layer.status
+                rows.append(VerifyRow(id=i, check=layer.check, status=status_str, command=layer.command))
             self.store.update_verify(rows)
             self._scan_artifacts()
 
@@ -153,17 +148,18 @@ class PipelineIntegration:
 
             # Stage 5: Learn
             PipelineEventBus.stage_start("learn")
-            from to_vibe.learn.learn import LegacyLearnCollector
-            collector = LegacyLearnCollector(self.project_path, config.learn)
-            learn_result = collector.collect()
+            from to_vibe.learn.learn import LearnAPI
+            learn_api = LearnAPI(self.project_path)
+            learn_result = learn_api.run()
+            detail_view = learn_api.get_detail_view()
             PipelineEventBus.stage_complete("learn")
 
             self.store.update_learn(LearnData(
                 status="completed",
-                records=learn_result.items_learned,
+                records=learn_result.pending_review,
                 focus="Patterns & fixes",
                 source="Verified issues",
-                detail_view=None,
+                detail_view=detail_view,
                 is_detail=False,
             ))
             self._scan_artifacts()
