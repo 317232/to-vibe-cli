@@ -1,0 +1,72 @@
+# to-vibe 配置文件
+# 复制此文件到项目根目录并根据需要修改
+
+version: "2.0"
+
+# LLM 配置 - endpoint-centric
+# 用户直接配置 base_url + api_key + model，protocol 决定请求格式
+# provider 作为可选预设别名，仅在 base_url 为空时提供默认地址
+llm:
+  provider: "anthropic"  # 'anthropic' | 'openai' | 'deepseek' | 'openrouter' | 'siliconflow' | 'ollama' | 'lm-studio' | 'custom'
+  base_url: ""           # API 根地址，如 https://api.anthropic.com/v1；留空则用 provider 预设
+  api_key: "${ANTHROPIC_API_KEY}"
+  model: "claude-sonnet-4-7"
+  protocol: "anthropic"  # 'anthropic' | 'openai-compatible' — 决定 auth 格式、endpoint 路径、body 结构
+  max_tokens: 4096
+  temperature: 0.7
+  timeout: 30
+  stream: true
+
+# Pipeline 配置
+pipeline:
+  mode: "dry-run"  # 'dry-run' | 'live'
+  max_iterations: 50
+  exit_level: "maintainable"  # 'stabilized' | 'maintainable' | 'ship-ready'
+  evidence:
+    exclude_patterns:
+      - "node_modules/**"
+      - ".git/**"
+      - "dist/**"
+      - "build/**"
+      - "target/**"
+      - "__pycache__/**"
+      - ".venv/**"
+  verify:
+    layers:
+      L1:
+        enabled: true
+        max_retries: 3
+      L2:
+        enabled: true
+        max_retries: 3
+      L3:
+        enabled: true
+        max_retries: 3
+      L4:
+        enabled: true
+        max_retries: 2
+      L5:
+        enabled: true
+        max_retries: 1
+
+# Session 配置
+session:
+  heartbeat_interval_seconds: 30
+  ttl_seconds: 300
+  recovery_policy: "auto"
+
+# Learn 模块配置
+learn:
+  trigger: "on_complete"  # 'on_complete' | 'manual'
+  min_confidence: 0.5
+  max_records: 1000
+  retention_days: 180
+
+# UI 配置
+ui:
+  log_levels:
+    - "info"
+    - "error"
+    - "warning"
+  auto_scroll: true
+  compact_mode: false
