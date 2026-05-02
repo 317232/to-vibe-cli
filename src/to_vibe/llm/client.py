@@ -139,22 +139,18 @@ class GenericLLMClient:
     # ------------------------------------------------------------------
 
     def _extract_content(self, result: Any) -> str:
-        """Extract message content from non-streaming response."""
-        if self.config.protocol == "anthropic":
-            return result["content"][0]["text"]
-        # openai-compatible
-        return result["choices"][0]["message"]["content"]
+        """Extract message content — skips thinking blocks, finds first text block."""
+        for item in result.get("content", []):
+            if isinstance(item, dict) and item.get("type") == "text":
+                return item.get("text", "")
+        return ""
 
     def _extract_chunk(self, chunk: Any) -> str:
-        """Extract text delta from streaming chunk."""
-        if self.config.protocol == "anthropic":
-            if chunk.get("type") == "content_block_delta":
-                return chunk["delta"]["text"]
-        else:
-            # openai-compatible
-            if choices := chunk.get("choices"):
-                delta = choices[0].get("delta", {})
-                return delta.get("content", "")
+        """Extract text delta — skips thinking chunks in MiniMax streaming."""
+        if chunk.get("type") == "content_block_delta":
+            return chunk.get("delta", {}).get("text", "")
+        if choices := chunk.get("choices"):
+            return choices[0].get("delta", {}).get("content", "")
         return ""
 
 
