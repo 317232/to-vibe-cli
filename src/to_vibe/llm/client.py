@@ -8,6 +8,7 @@ from typing import Any, AsyncIterator
 import httpx
 
 from to_vibe.config import LLMConfig
+from to_vibe.llm.protocol import get_protocol
 
 
 class LLMError(Exception):
@@ -16,9 +17,14 @@ class LLMError(Exception):
 
 
 class GenericLLMClient:
-    """Single LLM client driven by LLMConfig.protocol and base_url.
+    """LLM client that delegates protocol-specific behavior to LLMProtocol.
 
-    Protocol determines:
+    Responsibilities:
+      - HTTP transport (connection, timeouts, streaming)
+      - Building the full URL from base_url + endpoint
+      - Wiring auth headers
+
+    Protocol-specific behavior lives in LLMProtocol:
       - auth header name/value format
       - chat endpoint path
       - request body shape
@@ -27,15 +33,16 @@ class GenericLLMClient:
 
     def __init__(self, config: LLMConfig) -> None:
         self.config = config
+        self._protocol = get_protocol(config.protocol)
 
     # ------------------------------------------------------------------
-    # URL / headers helpers — delegated to LLMConfig
+    # URL / headers — build the HTTP request envelope
     # ------------------------------------------------------------------
 
     def _url(self) -> str:
         """Full URL for chat completions."""
         base = self.config.resolved_base_url()
-        path = self.config.chat_endpoint()
+        path = self._protocol.chat_endpoint()
         if base:
             return f"{base}{path}"
         return path
@@ -47,34 +54,10 @@ class GenericLLMClient:
         }
         if self.config.protocol == "anthropic":
             headers["anthropic-version"] = "2023-06-01"
-            headers[self.config.auth_header_name()] = self.config.auth_header_value(
-                self.config.api_key
-            )
-        else:
-            # openai-compatible
-            headers[self.config.auth_header_name()] = self.config.auth_header_value(
-                self.config.api_key
-            )
+        headers[self._protocol.auth_header_name()] = self._protocol.auth_header_value(
+            self.config.api_key
+        )
         return headers
-
-    def _body(self, messages: list[dict[str, str]], stream: bool, **kwargs: Any) -> dict[str, Any]:
-        """Build request body — protocol shapes the structure."""
-        body: dict[str, str] = {
-            "model": self.config.model,
-            "messages": messages,
-        }
-
-        if self.config.protocol == "anthropic":
-            body["max_tokens"] = kwargs.get("max_tokens", self.config.max_tokens)
-            body["stream"] = stream
-        else:
-            # openai-compatible
-            body["max_tokens"] = kwargs.get("max_tokens", self.config.max_tokens)
-            if self.config.temperature:
-                body["temperature"] = self.config.temperature
-            body["stream"] = stream
-
-        return body
 
     # ------------------------------------------------------------------
     # Public API
@@ -91,7 +74,13 @@ class GenericLLMClient:
         if not api_key:
             raise LLMError("API key not set (check api_key in to-vibe.yaml)")
 
-        body = self._body(messages, stream=False, max_tokens=max_tokens)
+        body = self._protocol.build_body(
+            model=self.config.model,
+            messages=messages,
+            stream=False,
+            max_tokens=max_tokens or self.config.max_tokens,
+            temperature=self.config.temperature if self.config.temperature else None,
+        )
         headers = self._headers()
 
         timeout = httpx.Timeout(self.config.timeout)
@@ -102,7 +91,7 @@ class GenericLLMClient:
             raise LLMError(f"LLM API error {response.status_code}: {response.text}")
 
         result = response.json()
-        return self._extract_content(result)
+        return self._protocol.extract_content(result)
 
     async def stream_complete(
         self,
@@ -115,7 +104,13 @@ class GenericLLMClient:
         if not api_key:
             raise LLMError("API key not set (check api_key in to-vibe.yaml)")
 
-        body = self._body(messages, stream=True, max_tokens=max_tokens)
+        body = self._protocol.build_body(
+            model=self.config.model,
+            messages=messages,
+            stream=True,
+            max_tokens=max_tokens or self.config.max_tokens,
+            temperature=self.config.temperature if self.config.temperature else None,
+        )
         headers = self._headers()
 
         timeout = httpx.Timeout(self.config.timeout)
@@ -130,28 +125,9 @@ class GenericLLMClient:
                         if line == "data: [DONE]":
                             break
                         chunk = json.loads(line[6:])
-                        text = self._extract_chunk(chunk)
+                        text = self._protocol.extract_chunk(chunk)
                         if text:
                             yield text
-
-    # ------------------------------------------------------------------
-    # Response parsing — protocol-specific
-    # ------------------------------------------------------------------
-
-    def _extract_content(self, result: Any) -> str:
-        """Extract message content — skips thinking blocks, finds first text block."""
-        for item in result.get("content", []):
-            if isinstance(item, dict) and item.get("type") == "text":
-                return item.get("text", "")
-        return ""
-
-    def _extract_chunk(self, chunk: Any) -> str:
-        """Extract text delta — skips thinking chunks in MiniMax streaming."""
-        if chunk.get("type") == "content_block_delta":
-            return chunk.get("delta", {}).get("text", "")
-        if choices := chunk.get("choices"):
-            return choices[0].get("delta", {}).get("content", "")
-        return ""
 
 
 # ------------------------------------------------------------------
