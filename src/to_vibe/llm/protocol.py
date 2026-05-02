@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from to_vibe.config import LLMConfig
 from to_vibe.llm.request import LLMRequest
 
 
@@ -21,12 +22,12 @@ class LLMProtocol:
         """Return the chat completions endpoint path."""
         raise NotImplementedError
 
-    def auth_header_name(self) -> str:
-        """Return the auth header key name."""
-        raise NotImplementedError
+    def headers(self, config: LLMConfig) -> dict[str, str]:
+        """Return all HTTP headers for this protocol, including auth.
 
-    def auth_header_value(self, api_key: str) -> str:
-        """Return the formatted auth header value given the raw api_key."""
+        Base headers (content-type, etc.) + protocol-specific auth headers
+        + config.extra_headers (allows multi-header auth, e.g. OpenRouter).
+        """
         raise NotImplementedError
 
     def build_request(self, req: LLMRequest) -> dict:
@@ -57,11 +58,14 @@ class AnthropicProtocol(LLMProtocol):
     def chat_endpoint(self) -> str:
         return "/v1/messages"
 
-    def auth_header_name(self) -> str:
-        return "x-api-key"
-
-    def auth_header_value(self, api_key: str) -> str:
-        return api_key  # raw, no Bearer
+    def headers(self, config: LLMConfig) -> dict[str, str]:
+        h: dict[str, str] = {
+            "content-type": "application/json",
+            "anthropic-version": "2023-06-01",
+            "x-api-key": config.api_key,
+        }
+        h.update(config.extra_headers)
+        return h
 
     def build_request(self, req: LLMRequest) -> dict:
         body: dict = {
@@ -74,7 +78,6 @@ class AnthropicProtocol(LLMProtocol):
             body["thinking"] = req.thinking
         if req.stop:
             body["stop_sequences"] = req.stop
-        # Merge extra_body for provider-specific fields (e.g. vertex-ai extensions)
         body.update(req.extra_body)
         return body
 
@@ -101,11 +104,13 @@ class OpenAICompatibleProtocol(LLMProtocol):
     def chat_endpoint(self) -> str:
         return "/v1/chat/completions"
 
-    def auth_header_name(self) -> str:
-        return "Authorization"
-
-    def auth_header_value(self, api_key: str) -> str:
-        return f"Bearer {api_key}"
+    def headers(self, config: LLMConfig) -> dict[str, str]:
+        h: dict[str, str] = {
+            "content-type": "application/json",
+            "Authorization": f"Bearer {config.api_key}",
+        }
+        h.update(config.extra_headers)
+        return h
 
     def build_request(self, req: LLMRequest) -> dict:
         body: dict = {
@@ -130,7 +135,6 @@ class OpenAICompatibleProtocol(LLMProtocol):
             body["tool_choice"] = req.tool_choice
         if req.response_format:
             body["response_format"] = req.response_format
-        # Merge extra_body last so it can override standard fields
         body.update(req.extra_body)
         return body
 
@@ -154,10 +158,7 @@ _PROTOCOLS: dict[str, LLMProtocol] = {
 
 
 def get_protocol(name: str) -> LLMProtocol:
-    """Return the protocol implementation for the given name.
-
-    Raises KeyError if unknown.
-    """
+    """Return the protocol implementation for the given name."""
     return _PROTOCOLS[name]
 
 

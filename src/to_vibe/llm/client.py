@@ -23,13 +23,12 @@ class GenericLLMClient:
     Responsibilities:
       - HTTP transport (connection, timeouts, streaming)
       - Building the full URL from base_url + endpoint
-      - Wiring auth headers
 
     Protocol-specific behavior lives in LLMProtocol:
-      - auth header name/value format
-      - chat endpoint path
-      - request body shape (via LLMRequest)
-      - response parsing
+      - headers(config) — all HTTP headers including auth + extra_headers
+      - chat_endpoint() — path component of the URL
+      - build_request(req: LLMRequest) — request body
+      - extract_content / extract_chunk — response parsing
     """
 
     def __init__(self, config: LLMConfig) -> None:
@@ -37,7 +36,7 @@ class GenericLLMClient:
         self._protocol = get_protocol(config.protocol)
 
     # ------------------------------------------------------------------
-    # URL / headers — build the HTTP request envelope
+    # URL — build the HTTP request envelope
     # ------------------------------------------------------------------
 
     def _url(self) -> str:
@@ -48,35 +47,27 @@ class GenericLLMClient:
             return f"{base}{path}"
         return path
 
-    def _headers(self) -> dict[str, str]:
-        """HTTP headers including auth."""
-        headers: dict[str, str] = {
-            "content-type": "application/json",
-        }
-        if self.config.protocol == "anthropic":
-            headers["anthropic-version"] = "2023-06-01"
-        headers[self._protocol.auth_header_name()] = self._protocol.auth_header_value(
-            self.config.api_key
-        )
-        return headers
+    # ------------------------------------------------------------------
+    # Request assembly
+    # ------------------------------------------------------------------
 
     def _build_request(self, messages: list[dict[str, str]], **kwargs: Any) -> LLMRequest:
         """Build an LLMRequest from config + caller kwargs."""
         return LLMRequest(
             model=self.config.model,
             messages=messages,
-            stream=kwargs.get("stream", self.config.stream),
-            max_tokens=kwargs.get("max_tokens", self.config.max_tokens),
-            temperature=kwargs.get("temperature", self.config.temperature),
-            top_p=kwargs.get("top_p"),
-            stop=kwargs.get("stop"),
-            presence_penalty=kwargs.get("presence_penalty"),
-            frequency_penalty=kwargs.get("frequency_penalty"),
-            thinking=kwargs.get("thinking"),
-            tools=kwargs.get("tools"),
-            tool_choice=kwargs.get("tool_choice"),
-            response_format=kwargs.get("response_format"),
-            extra_body=kwargs.get("extra_body", {}),
+            stream=kwargs.pop("stream", self.config.stream),
+            max_tokens=kwargs.pop("max_tokens", self.config.max_tokens),
+            temperature=kwargs.pop("temperature", self.config.temperature),
+            top_p=kwargs.pop("top_p", None),
+            stop=kwargs.pop("stop", None),
+            presence_penalty=kwargs.pop("presence_penalty", None),
+            frequency_penalty=kwargs.pop("frequency_penalty", None),
+            thinking=kwargs.pop("thinking", None),
+            tools=kwargs.pop("tools", None),
+            tool_choice=kwargs.pop("tool_choice", None),
+            response_format=kwargs.pop("response_format", None),
+            extra_body=kwargs.pop("extra_body", {}),
         )
 
     # ------------------------------------------------------------------
@@ -94,10 +85,10 @@ class GenericLLMClient:
         if not self.config.api_key:
             raise LLMError("API key not set (check api_key in to-vibe.yaml)")
 
-        req_kwargs = dict(stream=False, max_tokens=max_tokens, **kwargs)
-        req = self._build_request(messages, **req_kwargs)
+        # Force stream=False so body is correct for non-streaming response
+        req = self._build_request(messages, stream=False, max_tokens=max_tokens, **kwargs)
         body = self._protocol.build_request(req)
-        headers = self._headers()
+        headers = self._protocol.headers(self.config)
 
         timeout = httpx.Timeout(self.config.timeout)
         async with httpx.AsyncClient(timeout=timeout) as client:
@@ -119,10 +110,10 @@ class GenericLLMClient:
         if not self.config.api_key:
             raise LLMError("API key not set (check api_key in to-vibe.yaml)")
 
-        req_kwargs = dict(stream=True, max_tokens=max_tokens, **kwargs)
-        req = self._build_request(messages, **req_kwargs)
+        # Force stream=True so body is correct for streaming response
+        req = self._build_request(messages, stream=True, max_tokens=max_tokens, **kwargs)
         body = self._protocol.build_request(req)
-        headers = self._headers()
+        headers = self._protocol.headers(self.config)
 
         timeout = httpx.Timeout(self.config.timeout)
         async with httpx.AsyncClient(timeout=timeout) as client:

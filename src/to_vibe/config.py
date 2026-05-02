@@ -17,15 +17,17 @@ class LLMConfig:
     Protocol-specific behavior is delegated to LLMProtocol (see llm/protocol.py).
     """
 
-    provider: str = "anthropic"  # Optional preset hint: 'anthropic', 'openai', 'deepseek', 'custom'
-    base_url: str = ""        # API root address, e.g. https://api.anthropic.com/v1
-    api_key: str = ""          # Supports ${ENV_VAR} syntax
-    model: str = ""            # Model name, e.g. claude-sonnet-4-7, deepseek-chat
-    protocol: str = "openai-compatible"  # 'openai-compatible' | 'anthropic'
+    provider: str = "anthropic"
+    base_url: str = ""
+    api_key: str = ""
+    model: str = ""
+    protocol: str = "openai-compatible"
     max_tokens: int = 4096
     temperature: float = 0.7
     timeout: int = 30
     stream: bool = True
+    # Extra headers merged into every request (e.g. HTTP-Referer, X-Title for OpenRouter)
+    extra_headers: dict[str, str] = field(default_factory=dict)
 
     def resolved_base_url(self) -> str:
         """Get the base URL, using provider preset if base_url is empty."""
